@@ -40,8 +40,11 @@ export function TaskScreen({
     }
   };
 
+  // No copy/paste during the exam, as in the real TCF.
+  const blockClipboard = (e: React.SyntheticEvent) => e.preventDefault();
+
   return (
-    <div className="screen task-screen">
+    <div className="screen task-screen" onCopy={blockClipboard} onCut={blockClipboard}>
       <div className="card">
         <div className="task-screen__header">
           <h2>{task.title}</h2>
@@ -59,6 +62,15 @@ export function TaskScreen({
           className="task-screen__textarea"
           value={answer}
           onChange={(e) => onChange(e.target.value)}
+          onPaste={blockClipboard}
+          onDrop={blockClipboard}
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="off"
+          autoComplete="off"
+          data-gramm="false"
+          data-gramm_editor="false"
+          data-enable-grammarly="false"
           placeholder="Écrivez votre réponse ici..."
           aria-label={`Réponse pour ${task.title}`}
         />

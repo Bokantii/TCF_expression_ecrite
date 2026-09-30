@@ -236,6 +236,14 @@ p {
   margin-top: -8px;
 }
 
+/* During the exam the question can't be highlighted (the results page reuses
+   .task-screen__prompt and stays selectable). */
+.task-screen .task-screen__prompt,
+.task-screen .task-screen__range {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .task-screen__textarea {
   width: 100%;
   min-height: 320px;

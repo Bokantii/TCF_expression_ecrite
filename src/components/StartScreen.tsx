@@ -76,6 +76,10 @@ export function StartScreen({ onStart }: StartScreenProps) {
           {examMode === "full" && (
             <li>Vous ne pouvez pas revenir à une tâche précédente.</li>
           )}
+          <li>
+            Le correcteur orthographique et le copier-coller sont désactivés,
+            comme à l'examen.
+          </li>
           <li>À la fin du temps imparti, l'examen est soumis automatiquement.</li>
         </ul>
 
