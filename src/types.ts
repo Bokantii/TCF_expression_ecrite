@@ -18,6 +18,8 @@ export interface ExamState {
   answers: Answers;
   submitted: boolean;
   tasks: TaskSet;
+  // Indices into `tasks` the student chose to practice, e.g. [0, 1, 2] or [2].
+  selectedTasks: number[];
 }
 
 export type WordRangeStatus = "below" | "within" | "above";

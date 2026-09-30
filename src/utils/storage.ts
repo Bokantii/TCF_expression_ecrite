@@ -1,5 +1,6 @@
 import type { ExamState } from "../types";
 import { TASKS } from "../data/prompts";
+import { ALL_TASKS } from "../constants";
 
 const STORAGE_KEY = "tcf-exam-state-v1";
 
@@ -12,6 +13,7 @@ export function getDefaultState(): ExamState {
     answers: ["", "", ""],
     submitted: false,
     tasks: TASKS,
+    selectedTasks: ALL_TASKS,
   };
 }
 

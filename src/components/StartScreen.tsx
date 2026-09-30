@@ -1,23 +1,40 @@
 import { useState } from "react";
 import { TASKS } from "../data/prompts";
 import type { TaskSet } from "../types";
+import { ALL_TASKS, EXAM_DURATION_MS, TASK_DURATIONS_MS } from "../constants";
+import { parseTopics } from "../utils/parseTopics";
 
 interface StartScreenProps {
-  onStart: (tasks: TaskSet) => void;
+  onStart: (tasks: TaskSet, selectedTasks: number[]) => void;
 }
 
-type TopicMode = "default" | "custom";
+// "full" = the whole exam; a number = practice that single task only.
+type ExamMode = "full" | number;
+
+function toMinutes(ms: number): number {
+  return Math.round(ms / 60000);
+}
 
 export function StartScreen({ onStart }: StartScreenProps) {
-  const [mode, setMode] = useState<TopicMode>("default");
+  const [examMode, setExamMode] = useState<ExamMode>("full");
+  const [bulkText, setBulkText] = useState("");
   const [customTopics, setCustomTopics] = useState<[string, string, string]>([
     "",
     "",
     "",
   ]);
 
-  const canStart =
-    mode === "default" || customTopics.every((topic) => topic.trim().length > 0);
+  const selectedTasks = examMode === "full" ? ALL_TASKS : [examMode];
+  const durationMinutes = toMinutes(
+    selectedTasks.reduce((sum, i) => sum + TASK_DURATIONS_MS[i], 0)
+  );
+
+  const canStart = selectedTasks.every((i) => customTopics[i].trim().length > 0);
+
+  const bulkTopics = parseTopics(bulkText);
+  const missingTitles = TASKS.filter((_, i) => bulkTopics[i] === null).map(
+    (task) => task.title
+  );
 
   const handleCustomTopicChange = (index: number, value: string) => {
     setCustomTopics((prev) => {
@@ -27,13 +44,22 @@ export function StartScreen({ onStart }: StartScreenProps) {
     });
   };
 
+  // Fill each task's field from the pasted block; tasks not found keep their current text.
+  const handleBulkChange = (value: string) => {
+    setBulkText(value);
+    const topics = parseTopics(value);
+    setCustomTopics((prev) =>
+      prev.map((topic, i) => topics[i] ?? topic) as [string, string, string]
+    );
+  };
+
   const handleStartClick = () => {
     if (!canStart) return;
     const tasks: TaskSet = TASKS.map((task, index) => ({
       ...task,
-      prompt: mode === "custom" ? customTopics[index].trim() : task.prompt,
+      prompt: customTopics[index].trim(),
     })) as TaskSet;
-    onStart(tasks);
+    onStart(tasks, selectedTasks);
   };
 
   return (
@@ -41,63 +67,88 @@ export function StartScreen({ onStart }: StartScreenProps) {
       <div className="card">
         <h1>TCF Canada — Expression écrite</h1>
         <p>
-          Vous allez passer l'épreuve d'expression écrite du TCF Canada. Cette
-          épreuve comporte trois tâches à réaliser en 60 minutes au total.
+          {examMode === "full"
+            ? `Vous allez passer l'épreuve d'expression écrite du TCF Canada. Cette épreuve comporte trois tâches à réaliser en ${durationMinutes} minutes au total.`
+            : `Vous allez vous entraîner sur la ${TASKS[examMode].title} uniquement, en ${durationMinutes} minutes.`}
         </p>
         <ul className="start-screen__rules">
           <li>Le chronomètre démarre dès que vous cliquez sur "Start Exam".</li>
-          <li>Vous ne pouvez pas revenir à une tâche précédente.</li>
+          {examMode === "full" && (
+            <li>Vous ne pouvez pas revenir à une tâche précédente.</li>
+          )}
           <li>À la fin du temps imparti, l'examen est soumis automatiquement.</li>
         </ul>
 
         <fieldset className="start-screen__mode">
-          <legend>Sujets des tâches</legend>
+          <legend>Mode</legend>
           <label className="start-screen__mode-option">
             <input
               type="radio"
-              name="topic-mode"
-              value="default"
-              checked={mode === "default"}
-              onChange={() => setMode("default")}
+              name="exam-mode"
+              value="full"
+              checked={examMode === "full"}
+              onChange={() => setExamMode("full")}
             />
-            Utiliser les sujets d'exemple
+            Examen complet — 3 tâches, {toMinutes(EXAM_DURATION_MS)} min
           </label>
-          <label className="start-screen__mode-option">
-            <input
-              type="radio"
-              name="topic-mode"
-              value="custom"
-              checked={mode === "custom"}
-              onChange={() => setMode("custom")}
-            />
-            Coller mes propres sujets
-          </label>
+          {TASKS.map((task, index) => (
+            <label className="start-screen__mode-option" key={task.id}>
+              <input
+                type="radio"
+                name="exam-mode"
+                value={index}
+                checked={examMode === index}
+                onChange={() => setExamMode(index)}
+              />
+              {task.title} seulement — {toMinutes(TASK_DURATIONS_MS[index])} min
+            </label>
+          ))}
         </fieldset>
 
-        {mode === "custom" && (
-          <div className="start-screen__custom-topics">
-            {TASKS.map((task, index) => (
-              <div className="start-screen__custom-field" key={task.id}>
-                <label htmlFor={`custom-topic-${task.id}`}>
-                  {task.title} — sujet ({task.minWords}–{task.maxWords} mots
-                  recommandés)
-                </label>
-                <textarea
-                  id={`custom-topic-${task.id}`}
-                  className="start-screen__custom-textarea"
-                  value={customTopics[index]}
-                  onChange={(e) => handleCustomTopicChange(index, e.target.value)}
-                  placeholder={`Collez le sujet de ${task.title} ici...`}
-                />
-              </div>
-            ))}
-            {!canStart && (
-              <p className="start-screen__hint">
-                Collez un sujet pour chacune des trois tâches pour continuer.
-              </p>
-            )}
-          </div>
-        )}
+        <div className="start-screen__custom-topics">
+          {examMode === "full" && (
+            <div className="start-screen__custom-field">
+              <label htmlFor="bulk-topics">Coller les 3 sujets d'un coup</label>
+              <textarea
+                id="bulk-topics"
+                className="start-screen__custom-textarea"
+                value={bulkText}
+                onChange={(e) => handleBulkChange(e.target.value)}
+                placeholder={"Tâche 1\n...\nTâche 2\n...\nTâche 3\n..."}
+              />
+              {bulkText.trim() && (
+                <p className="start-screen__hint">
+                  {missingTitles.length === 0
+                    ? "3 sujets détectés — vérifiez-les ci-dessous."
+                    : `Introuvable : ${missingTitles.join(", ")} — ${missingTitles.length > 1 ? "collez-les" : "collez-la"} ci-dessous.`}
+                </p>
+              )}
+            </div>
+          )}
+
+          {TASKS.map((task, index) => selectedTasks.includes(index) && (
+            <div className="start-screen__custom-field" key={task.id}>
+              <label htmlFor={`custom-topic-${task.id}`}>
+                {task.title} — sujet ({task.minWords}–{task.maxWords} mots
+                recommandés)
+              </label>
+              <textarea
+                id={`custom-topic-${task.id}`}
+                className="start-screen__custom-textarea"
+                value={customTopics[index]}
+                onChange={(e) => handleCustomTopicChange(index, e.target.value)}
+                placeholder={`Collez le sujet de ${task.title} ici...`}
+              />
+            </div>
+          ))}
+          {!canStart && (
+            <p className="start-screen__hint">
+              {selectedTasks.length > 1
+                ? "Collez un sujet pour chacune des trois tâches pour continuer."
+                : "Collez le sujet de la tâche pour continuer."}
+            </p>
+          )}
+        </div>
 
         <button
           className="btn btn--primary"

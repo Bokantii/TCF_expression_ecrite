@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { ExamState, TaskSet } from "./types";
-import { EXAM_DURATION_MS } from "./constants";
+import { TASK_DURATIONS_MS } from "./constants";
 import { getDefaultState, loadState, saveState, clearState } from "./utils/storage";
 import { useCountdown } from "./hooks/useCountdown";
 import { StartScreen } from "./components/StartScreen";
@@ -23,16 +23,18 @@ function App() {
   const isCountingDown = state.started && !state.submitted;
   const remainingMs = useCountdown(isCountingDown ? state.endsAt : null, handleExpire);
 
-  const handleStart = (tasks: TaskSet) => {
+  const handleStart = (tasks: TaskSet, selectedTasks: number[]) => {
     const now = Date.now();
+    const duration = selectedTasks.reduce((sum, i) => sum + TASK_DURATIONS_MS[i], 0);
     const next: ExamState = {
       started: true,
       startedAt: now,
-      endsAt: now + EXAM_DURATION_MS,
-      currentTaskIndex: 0,
+      endsAt: now + duration,
+      currentTaskIndex: selectedTasks[0],
       answers: ["", "", ""],
       submitted: false,
       tasks,
+      selectedTasks,
     };
     setState(next);
     saveState(next);
@@ -50,7 +52,8 @@ function App() {
 
   const handleNext = () => {
     setState((prev) => {
-      const next = { ...prev, currentTaskIndex: prev.currentTaskIndex + 1 };
+      const position = prev.selectedTasks.indexOf(prev.currentTaskIndex);
+      const next = { ...prev, currentTaskIndex: prev.selectedTasks[position + 1] };
       saveState(next);
       return next;
     });
@@ -78,23 +81,25 @@ function App() {
       <ResultsPage
         tasks={state.tasks}
         answers={state.answers}
+        selectedTasks={state.selectedTasks}
         onRestart={handleRestart}
       />
     );
   }
 
   const task = state.tasks[state.currentTaskIndex];
+  const position = state.selectedTasks.indexOf(state.currentTaskIndex);
 
   return (
     <>
       <Timer remainingMs={remainingMs} />
       <TaskScreen
         task={task}
-        taskNumber={state.currentTaskIndex + 1}
-        totalTasks={state.tasks.length}
+        taskNumber={position + 1}
+        totalTasks={state.selectedTasks.length}
         answer={state.answers[state.currentTaskIndex]}
         remainingMs={remainingMs}
-        isLast={state.currentTaskIndex === state.tasks.length - 1}
+        isLast={position === state.selectedTasks.length - 1}
         onChange={handleAnswerChange}
         onNext={handleNext}
         onSubmit={handleSubmit}
